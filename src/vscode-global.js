@@ -17,18 +17,28 @@ function stripJsonComments(text) {
 
 /**
  * Reads and parses the user's existing settings.json.
- * Returns { settings, parseFailed }. On a parse failure, `settings` is an
- * EMPTY object but `parseFailed` is true — callers must check this and
- * refuse to write, rather than silently overwriting a file we couldn't
- * fully understand and risking deleting everything the user already had
- * configured there.
+ * Returns { settings, parseFailed }. On a parse failure — including the
+ * content being valid JSON but not a plain object (e.g. an array, which
+ * VS Code itself would never write there, but a corrupted file theoretically
+ * could contain) — `settings` is an EMPTY object but `parseFailed` is true.
+ * Callers must check this and refuse to write, rather than silently
+ * overwriting a file we couldn't fully understand and risking deleting
+ * everything the user already had configured there.
  */
 function readSettings() {
   if (!fs.existsSync(VSCODE_USER_SETTINGS)) return { settings: {}, parseFailed: false };
   const raw = fs.readFileSync(VSCODE_USER_SETTINGS, 'utf8');
   if (!raw.trim()) return { settings: {}, parseFailed: false };
   try {
-    return { settings: JSON.parse(stripJsonComments(raw)), parseFailed: false };
+    const parsed = JSON.parse(stripJsonComments(raw));
+    // Must be a genuine plain object — an array or a primitive would silently
+    // swallow the keys we set below (JSON.stringify on an array ignores
+    // non-index properties), making it look like the write succeeded when
+    // nothing was actually saved.
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { settings: {}, parseFailed: true };
+    }
+    return { settings: parsed, parseFailed: false };
   } catch (e) {
     return { settings: {}, parseFailed: true };
   }

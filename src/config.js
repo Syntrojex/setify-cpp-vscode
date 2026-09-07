@@ -1,6 +1,7 @@
 'use strict';
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 // ── Windows: MinGW-w64 download/install (WinLibs releases update every few
 // weeks — if this link ever 404s, grab a fresh "Win64 Zip archive" link from
@@ -16,7 +17,16 @@ const MINGW_ZIP_URL =
 const PRIMARY_INSTALL_DIR = 'C:\\mingw64';
 const FALLBACK_INSTALL_DIR = 'C:\\Users\\Public\\mingw64';
 
-const ZIP_TMP_PATH = path.join(os.tmpdir(), 'setify-cpp-download.zip');
+// The temp filename includes a short hash of the download URL. This matters
+// for resume support: if a download is interrupted, left as a partial file,
+// and THEN this extension updates to a newer version pointing at a
+// different MINGW_ZIP_URL (WinLibs ships new releases every few weeks), a
+// fixed filename would cause the new version to try resuming the old
+// version's leftover bytes onto the new URL — silently corrupting the
+// download by splicing together two different files. Hashing the URL into
+// the filename means a URL change always gets a fresh temp path instead.
+const urlHash = crypto.createHash('sha1').update(MINGW_ZIP_URL).digest('hex').slice(0, 10);
+const ZIP_TMP_PATH = path.join(os.tmpdir(), `setify-cpp-download-${urlHash}.zip`);
 
 // Common places g++/MinGW/clang already lives, checked during auto-detection
 // so we never re-download or re-trigger an install that's already there.

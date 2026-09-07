@@ -26,6 +26,23 @@ function safeWire(binDir, log) {
 }
 
 /**
+ * Wraps addToUserPath so a PowerShell failure (e.g. a locked-down corporate
+ * machine with restrictive execution policy) doesn't crash the whole setup.
+ * PATH is a nice-to-have for terminal use — the part that actually matters
+ * for VS Code's Run button is wireGlobalVscode() pointing at the compiler's
+ * absolute path directly, so a PATH failure here is logged and setup
+ * continues rather than aborting.
+ */
+function safeAddToUserPath(dir, log) {
+  try {
+    return addToUserPath(dir);
+  } catch (e) {
+    log(`Could not update PATH automatically (${e.message}) — continuing anyway, VS Code will still work.`);
+    return false;
+  }
+}
+
+/**
  * Windows flow: fully automatic. Detect → download MinGW if missing →
  * add to PATH → wire VS Code globally.
  */
@@ -43,7 +60,7 @@ async function runWindowsInstall(log) {
     }
   } else if (others.length > 0) {
     log(`Found (not on PATH yet): ${others[0].version}`);
-    addToUserPath(others[0].dir);
+    safeAddToUserPath(others[0].dir, log);
     log('Added to PATH.');
     binDir = others[0].dir;
   } else {
@@ -51,17 +68,22 @@ async function runWindowsInstall(log) {
     log('Downloading (~260MB) — this can take a few minutes.');
     let installedTo;
     try {
-      installedTo = await downloadAndInstall((fallbackDir) => {
-        log(`C:\\ isn't writable without admin rights — using ${fallbackDir} instead.`);
-      });
+      installedTo = await downloadAndInstall(
+        (fallbackDir) => {
+          log(`C:\\ isn't writable without admin rights — using ${fallbackDir} instead.`);
+        },
+        (attempt, totalAttempts, err) => {
+          log(`Connection issue (${err.message}) — resuming download, attempt ${attempt + 1}/${totalAttempts}...`);
+        }
+      );
     } catch (e) {
       log(`Download failed: ${e.message}`);
       return { ok: false, message: e.message };
     }
     log(`Installed to ${installedTo}`);
     binDir = path.join(installedTo, 'bin');
-    const added = addToUserPath(binDir);
-    log(added ? 'Added to PATH.' : 'Already on PATH.');
+    const added = safeAddToUserPath(binDir, log);
+    log(added ? 'Added to PATH.' : 'Already on PATH (or could not be updated).');
   }
 
   try {
