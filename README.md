@@ -49,4 +49,16 @@ Every C++ beginner on Windows hits the same wall before writing a single meaning
 
 None of this has anything to do with learning C++. It's tooling friction, and it stops people before they start.
 
+---
 
+## License
+
+Released under the [MIT License](LICENSE) — free to use, modify, and distribute.
+
+---
+
+<div align="center">
+
+If Setify C++ saved you the trouble of manually configuring MinGW, consider ⭐ starring [the repository](https://github.com/Syntrojex/set-cpp-vscode).
+
+</div>
