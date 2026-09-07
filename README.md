@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp)
 
-[**Install from Marketplace**](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp) &nbsp;·&nbsp; [Repository](https://github.com/Syntrojex/set-cpp-vscode) &nbsp;·&nbsp; [Report an Issue](https://github.com/Syntrojex/set-cpp-vscode/issues) &nbsp;·&nbsp; [Changelog](#-release-notes)
+[**Install from Marketplace**](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp) &nbsp;·&nbsp; [Repository](https://github.com/Syntrojex/setify-cpp-vscode) &nbsp;·&nbsp; [Report an Issue](https://github.com/Syntrojex/setify-cpp-vscode/issues) &nbsp;·&nbsp; [Changelog](#-release-notes)
 
 </div>
 
