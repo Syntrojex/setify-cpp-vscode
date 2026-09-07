@@ -30,4 +30,18 @@
 - [Credits](#credits)
 - [License](#license)
 
-<br>
+---
+
+## The Problem
+
+Every C++ beginner on Windows hits the same wall before writing a single meaningful line of code:
+
+- Which MinGW build do I even download — MinGW, MinGW-w64, TDM-GCC, MSYS2, WinLibs?
+- Where do I extract it?
+- How do I add it to PATH without breaking something else?
+- Why does VS Code's Run button keep asking me to "select a compiler"?
+- Why does IntelliSense show red squiggles under `#include <iostream>` even after installing everything?
+
+None of this has anything to do with learning C++. It's tooling friction, and it stops people before they start.
+
+
