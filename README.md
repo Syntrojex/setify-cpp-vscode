@@ -51,6 +51,15 @@ None of this has anything to do with learning C++. It's tooling friction, and it
 
 ---
 
+## Credits
+
+Designed and built by **Muhammad Mustafa Amir**
+
+<a href="https://github.com/Syntrojex"><img src="https://img.shields.io/badge/GitHub-Syntrojex-181717?style=flat-square&logo=github" alt="GitHub"></a>
+<a href="https://www.linkedin.com/in/mustafa-amir-syntrojex"><img src="https://img.shields.io/badge/LinkedIn-mustafa--amir--syntrojex-0A66C2?style=flat-square&logo=linkedin" alt="LinkedIn"></a>
+
+---
+
 ## License
 
 Released under the [MIT License](LICENSE) — free to use, modify, and distribute.
