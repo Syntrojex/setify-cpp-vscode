@@ -1,8 +1,8 @@
 {
   "name": "setify-cpp",
   "displayName": "Setify C++ — C++ Setup for VS Code",
-  "description": "Zero-config C++ development for VS Code on Windows — automatically detects or installs MinGW-w64 and the official C/C++ extension, so VS Code's built-in Run just works.",
-  "version": "1.0.9",
+  "description": "Zero-config C++ development for VS Code — automatically detects or installs a compiler (MinGW-w64 on Windows, Xcode Command Line Tools on macOS) and the official C/C++ extension, so VS Code's built-in Run just works.",
+  "version": "1.1.0",
   "publisher": "Syntrojex",
   "icon": "images/icon.png",
   "engines": {
