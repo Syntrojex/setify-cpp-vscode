@@ -2,8 +2,12 @@
 const { execSync, spawn } = require('child_process');
 
 /**
- * Checks if Xcode Command Line Tools (which include clang/g++) are already
- * installed, via `xcode-select -p`.
+ * Checks if Xcode Command Line Tools are installed via `xcode-select -p`.
+ * NOTE: this only confirms the path is registered — it does NOT guarantee
+ * the toolchain inside is complete/working (a previous interrupted or
+ * partial install can leave xcode-select "aware" of a broken installation).
+ * Callers should still verify an actual compiler resolves before trusting
+ * this alone.
  */
 function isXcodeToolsInstalled() {
   try {

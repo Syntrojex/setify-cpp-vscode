@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { VSCODE_USER_SETTINGS } = require('./config');
 
 /**
@@ -31,10 +32,6 @@ function readSettings() {
   if (!raw.trim()) return { settings: {}, parseFailed: false };
   try {
     const parsed = JSON.parse(stripJsonComments(raw));
-    // Must be a genuine plain object — an array or a primitive would silently
-    // swallow the keys we set below (JSON.stringify on an array ignores
-    // non-index properties), making it look like the write succeeded when
-    // nothing was actually saved.
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return { settings: {}, parseFailed: true };
     }
@@ -45,25 +42,41 @@ function readSettings() {
 }
 
 /**
+ * Resolves the correct cpptools IntelliSense mode string for the current
+ * platform + architecture. Apple Silicon (M1/M2/M3/M4/M5, arm64) is NOT the
+ * same as an Intel Mac — using "macos-clang-x64" on an arm64 Mac gives
+ * cpptools a wrong target triple for IntelliSense.
+ */
+function intelliSenseModeFor(isWin, isMac) {
+  if (isWin) return 'windows-gcc-x64';
+  if (isMac) return process.arch === 'arm64' ? 'macos-clang-arm64' : 'macos-clang-x64';
+  return 'linux-gcc-x64';
+}
+
+/**
  * Writes compiler info into VS Code's GLOBAL user settings — this is what
  * makes it work in any folder/project VS Code ever opens, not just the one
  * you happened to run Setify C++ in. Existing unrelated settings are
  * preserved.
  *
+ * @param {string} binDir - directory containing the compiler binary
+ * @param {string} [binaryName] - bare executable name to use, e.g. "clang++"
+ *   or "g++" (without platform-specific extension). Detection tells us which
+ *   one actually resolved — on macOS this is usually "clang++" since that's
+ *   what /usr/bin/g++ really is under the hood. Defaults to "g++" for
+ *   backwards compatibility (Windows always uses this).
+ *
  * Throws if the existing settings.json couldn't be safely parsed, instead
  * of overwriting it — an unparseable file is left completely untouched
  * rather than risk destroying whatever the user already had in it.
  */
-function wireGlobalVscode(binDir) {
+function wireGlobalVscode(binDir, binaryName) {
   const isWin = process.platform === 'win32';
   const isMac = process.platform === 'darwin';
+  const compilerBinary = binaryName || 'g++';
 
-  const gppName = isWin ? 'g++.exe' : 'g++';
-  const gdbName = isWin ? 'gdb.exe' : 'gdb';
-  const intelliSenseMode = isWin ? 'windows-gcc-x64' : isMac ? 'macos-clang-x64' : 'linux-gcc-x64';
-
-  const gppPath = path.join(binDir, gppName).replace(/\\/g, '/');
-  const gdbPath = path.join(binDir, gdbName).replace(/\\/g, '/');
+  const exeName = isWin ? `${compilerBinary}.exe` : compilerBinary;
+  const compilerPath = path.join(binDir, exeName).replace(/\\/g, '/');
 
   const { settings, parseFailed } = readSettings();
   if (parseFailed) {
@@ -73,20 +86,22 @@ function wireGlobalVscode(binDir) {
     );
   }
 
-  settings['C_Cpp.default.compilerPath'] = gppPath;
+  settings['C_Cpp.default.compilerPath'] = compilerPath;
   settings['C_Cpp.default.cStandard'] = 'c17';
   settings['C_Cpp.default.cppStandard'] = 'c++17';
-  settings['C_Cpp.default.intelliSenseMode'] = intelliSenseMode;
-  // Keeps the C/C++ extension's own native ▶ Run icon (top-right of the
-  // editor) visible — this IS the "VS Code Run" the user runs their code
-  // with. Explicitly setting it to true (not just leaving it unset) also
-  // reverses the false value an earlier Setify C++ version wrote, for
-  // anyone upgrading from that release.
+  settings['C_Cpp.default.intelliSenseMode'] = intelliSenseModeFor(isWin, isMac);
   settings['C_Cpp.debugShortcut'] = true;
-  // macOS ships lldb, not gdb, via Xcode tools — only set a debuggerPath
-  // override when we actually know a gdb binary exists there (Windows/Linux).
-  if (isWin || fs.existsSync(gdbPath)) {
-    settings['C_Cpp.default.debuggerPath'] = gdbPath;
+
+  // Debugger path: only ever set this to a GDB binary, and only when one
+  // genuinely exists next to the compiler (Windows/MinGW, or a Linux distro
+  // GCC toolchain). macOS's native debugger is LLDB, which cpptools already
+  // knows how to use on its own via the system's Xcode Command Line Tools —
+  // forcing a gdb path there would be wrong and is never done.
+  if (!isMac) {
+    const gdbPath = path.join(binDir, isWin ? 'gdb.exe' : 'gdb').replace(/\\/g, '/');
+    if (fs.existsSync(gdbPath)) {
+      settings['C_Cpp.default.debuggerPath'] = gdbPath;
+    }
   }
 
   fs.mkdirSync(path.dirname(VSCODE_USER_SETTINGS), { recursive: true });
@@ -95,9 +110,40 @@ function wireGlobalVscode(binDir) {
   return VSCODE_USER_SETTINGS;
 }
 
+/**
+ * True only if VS Code is wired to a compiler path that GENUINELY WORKS
+ * right now on THIS platform — not just "a file exists at that path".
+ *
+ * Three things are checked, in order:
+ *   1. The path actually resolves at all (fs.existsSync alone doesn't
+ *      guarantee that — a broken symlink or a leftover from a different
+ *      install could still "exist" without being usable).
+ *   2. Running it with --version succeeds (exit code 0). A path could exist
+ *      and even be executable without being a compiler at all.
+ *   3. The --version output actually looks like a C/C++ compiler's. Many
+ *      unrelated Unix tools also respond successfully to --version (e.g.
+ *      `ls --version` exits 0 on most systems) — checking exit code alone
+ *      isn't enough to distinguish "some executable" from "an actual
+ *      compiler". Matching known compiler signature text closes that gap.
+ *
+ * This intentionally does NOT try to match the specific binary name
+ * (clang++ vs g++) that Setify itself would have chosen — a user is free to
+ * have a different, perfectly valid compiler configured, and that should
+ * still count as "wired". What matters is that whatever is configured is a
+ * real, currently-working compiler on this machine.
+ */
 function isGloballyWired() {
   const { settings } = readSettings();
-  return Boolean(settings['C_Cpp.default.compilerPath']);
+  const compilerPath = settings['C_Cpp.default.compilerPath'];
+  if (!compilerPath || !fs.existsSync(compilerPath)) return false;
+
+  try {
+    const output = execFileSync(compilerPath, ['--version'], { encoding: 'utf8' }).toLowerCase();
+    const compilerSignatures = ['gcc', 'g++', 'clang', 'mingw', 'apple llvm'];
+    return compilerSignatures.some((sig) => output.includes(sig));
+  } catch (e) {
+    return false;
+  }
 }
 
 module.exports = { wireGlobalVscode, isGloballyWired, VSCODE_USER_SETTINGS };
