@@ -9,15 +9,14 @@ const { isXcodeToolsInstalled, triggerXcodeToolsInstall } = require('./mac-insta
 const { PRIMARY_INSTALL_DIR } = require('./config');
 
 /**
- * Wraps wireGlobalVscode so a parse failure on the user's existing
- * settings.json (which makes it throw, by design — see vscode-global.js)
+ * Wraps wireGlobalVscode so a failure updating VS Code's configuration API
  * turns into a graceful { ok: false } result instead of an unhandled
  * exception bubbling all the way up through VS Code's progress API.
  */
-function safeWire(binDir, binaryName, log) {
+async function safeWire(binDir, binaryName, log) {
   try {
-    const settingsPath = wireGlobalVscode(binDir, binaryName);
-    log(`VS Code wired up globally (${settingsPath}), using ${binaryName}.`);
+    const compilerPath = await wireGlobalVscode(binDir, binaryName);
+    log(`VS Code wired up globally (${compilerPath}), using ${binaryName}.`);
     return true;
   } catch (e) {
     log(`Could not update VS Code settings: ${e.message}`);
@@ -91,7 +90,7 @@ async function runWindowsInstall(log) {
     log('Could not verify compiler — you may need to reload VS Code.');
   }
 
-  if (!safeWire(binDir, binary, log)) {
+  if (!(await safeWire(binDir, binary, log))) {
     return { ok: false, message: 'Compiler is installed, but VS Code settings could not be updated automatically.' };
   }
 
@@ -121,7 +120,7 @@ async function runMacInstall(log) {
     } catch (e) {
       return { ok: false, message: `Compiler detected but its location could not be resolved: ${e.message}` };
     }
-    if (!safeWire(binDir, onPath.binary, log)) {
+    if (!(await safeWire(binDir, onPath.binary, log))) {
       return { ok: false, message: 'Compiler found, but VS Code settings could not be updated automatically.' };
     }
     return { ok: true, message: 'Setup complete' };
@@ -129,7 +128,7 @@ async function runMacInstall(log) {
 
   if (others.length > 0) {
     log(`Found: ${others[0].version} (${others[0].binary})`);
-    if (!safeWire(others[0].dir, others[0].binary, log)) {
+    if (!(await safeWire(others[0].dir, others[0].binary, log))) {
       return { ok: false, message: 'Compiler found, but VS Code settings could not be updated automatically.' };
     }
     return { ok: true, message: 'Setup complete' };

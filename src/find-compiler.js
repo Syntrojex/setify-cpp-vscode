@@ -32,21 +32,31 @@ function findOnPath() {
 
 /**
  * Scans well-known install locations even if they're not currently on PATH.
- * Returns an array of { dir, version, binary }.
+ * Returns an array of { dir, version, binary }. A file existing at the
+ * expected path is NOT enough on its own — it must also actually run
+ * successfully. Without this, a broken/incomplete install (the classic
+ * macOS symptom: partial Xcode Command Line Tools leaving a clang++ file
+ * present but non-functional) would be reported as a valid, working
+ * compiler, and setup would falsely claim success.
  */
 function scanKnownLocations() {
   const found = [];
   for (const dir of KNOWN_INSTALL_LOCATIONS) {
     for (const binary of COMPILER_CANDIDATES) {
       const binPath = path.join(dir, binary + BINARY_SUFFIX);
-      if (fs.existsSync(binPath)) {
-        try {
-          const out = execFileSync(binPath, ['--version'], { encoding: 'utf8' });
-          found.push({ dir, version: out.split('\n')[0].trim(), binary });
-        } catch (e) {
-          found.push({ dir, version: 'found, but could not run --version', binary });
-        }
-        break; // one compiler per directory is enough
+      if (!fs.existsSync(binPath)) continue;
+
+      try {
+        const out = execFileSync(binPath, ['--version'], {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
+        });
+        found.push({ dir, version: out.split('\n')[0].trim(), binary });
+        break; // this directory has a working compiler — one per directory is enough
+      } catch (e) {
+        // File exists but isn't a usable compiler — do NOT treat it as a
+        // valid installation. Keep checking other candidate names in the
+        // same directory instead of giving up on it entirely.
       }
     }
   }

@@ -5,6 +5,38 @@ const { spawn } = require('child_process');
 const path = require('path');
 const { MINGW_ZIP_URL, ZIP_TMP_PATH, PRIMARY_INSTALL_DIR, FALLBACK_INSTALL_DIR } = require('./config');
 
+const REPORT_ISSUE_URL =
+  'https://github.com/Syntrojex/set-cpp-vscode/issues/new?title=MinGW%20download%20URL%20expired&body=The%20MinGW-w64%20download%20link%20in%20config.js%20appears%20to%20be%20dead%20(the%20upstream%20WinLibs%20release%20may%20have%20moved%20or%20been%20removed).%20Please%20update%20MINGW_ZIP_URL.';
+
+/**
+ * Checks whether a URL is actually reachable, using a lightweight HEAD
+ * request (follows redirects) instead of starting a real ~260MB download
+ * just to find out. Returns the final resolved HTTP status code, or null if
+ * the check itself was inconclusive (timeout, DNS failure, no connection at
+ * all) — a null result should NOT be treated as "the URL is broken", since
+ * it could just as easily be the user's own network being flaky right now.
+ */
+function checkUrlStatus(url, redirectsLeft = 5) {
+  return new Promise((resolve) => {
+    const req = https
+      .request(url, { method: 'HEAD' }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirectsLeft > 0) {
+          resolve(checkUrlStatus(res.headers.location, redirectsLeft - 1));
+          return;
+        }
+        resolve(res.statusCode);
+      })
+      .on('error', () => resolve(null));
+
+    req.setTimeout(10000, () => {
+      req.destroy();
+      resolve(null);
+    });
+
+    req.end();
+  });
+}
+
 // Downloader with resume support: if destPath already has partial bytes
 // from a previous attempt, requests only the remaining range instead of
 // starting over. Falls back to a clean restart if the server doesn't
@@ -190,13 +222,32 @@ function canWriteTo(dir) {
  * falls back to C:\Users\Public\mingw64 (still on the C: drive, still
  * shared/global, no admin rights needed).
  *
- * The download automatically retries on failure, resuming from wherever the
- * previous attempt left off (see downloadWithRetries/download) — a dropped
- * connection costs time, not already-downloaded data.
+ * Before attempting the real ~260MB download, a quick HEAD check confirms
+ * the URL is actually still alive. WinLibs periodically moves/renames its
+ * releases, so this link WILL eventually go stale — when it does, this
+ * fails immediately with a clear, actionable message pointing at a
+ * pre-filled GitHub issue, instead of burning through 3 retries with delays
+ * only to end up with a confusing raw "404" error. A CONFIRMED 404/410 is
+ * what triggers this — an inconclusive check (network hiccup, timeout) is
+ * NOT treated as "the URL is broken" and falls through to a normal
+ * download attempt (which has its own retry logic for exactly that case).
+ *
+ * The download itself automatically retries on failure, resuming from
+ * wherever the previous attempt left off — a dropped connection costs
+ * time, not already-downloaded data.
  *
  * Returns the directory it actually installed into.
  */
 async function downloadAndInstall(onFallback, onRetry) {
+  const status = await checkUrlStatus(MINGW_ZIP_URL);
+  if (status === 404 || status === 410) {
+    throw new Error(
+      `The MinGW download link is no longer available (server responded ${status}). ` +
+        `This means the upstream WinLibs release moved and Setify C++ needs an update. ` +
+        `Please report this: ${REPORT_ISSUE_URL}`
+    );
+  }
+
   await downloadWithRetries(MINGW_ZIP_URL, ZIP_TMP_PATH, 3, onRetry);
 
   let targetDir = PRIMARY_INSTALL_DIR;
@@ -211,4 +262,12 @@ async function downloadAndInstall(onFallback, onRetry) {
   return targetDir;
 }
 
-module.exports = { download, downloadWithRetries, extractZip, flattenIfNested, canWriteTo, downloadAndInstall };
+module.exports = {
+  download,
+  downloadWithRetries,
+  checkUrlStatus,
+  extractZip,
+  flattenIfNested,
+  canWriteTo,
+  downloadAndInstall
+};
