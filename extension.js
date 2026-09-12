@@ -120,7 +120,8 @@ function activate(context) {
   // ones), AND that wiring which was somehow removed or never completed
   // gets fixed automatically next time VS Code starts — without ever
   // re-downloading anything when a compiler is already present, since that
-  // check (isGloballyWired) is just a fast local file read.
+  // check (isGloballyWired) is just a fast local check against VS Code's
+  // configuration API, not a re-install.
   if (!findOnPath() || !isGloballyWired()) {
     setupWithProgress(false);
   }
