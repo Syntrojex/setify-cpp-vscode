@@ -102,6 +102,16 @@ Or install directly from the [Marketplace listing](https://marketplace.visualstu
 
 ---
 
+## 📋 Requirements
+
+- Visual Studio Code `1.85.0` or later
+- Windows 10 or later, for the fully automatic setup path
+- An internet connection, the first time only, to download the compiler (~260 MB on Windows)
+
+No Node.js, no npm, no pre-existing compiler, and no prior VS Code configuration required.
+
+--
+
 ## Credits
 
 Designed and built by **Muhammad Mustafa Amir**
