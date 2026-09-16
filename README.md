@@ -110,7 +110,17 @@ Or install directly from the [Marketplace listing](https://marketplace.visualstu
 
 No Node.js, no npm, no pre-existing compiler, and no prior VS Code configuration required.
 
---
+---
+
+## ⚙️ Commands
+
+Setup runs automatically — but one command is available if you ever need to re-trigger it:
+
+| Command | Palette Entry | Description |
+|---|---|---|
+| `setify-cpp.setup` | **Setify C++: Setup C++ Compiler** | Re-runs detection/installation manually — useful after installing a compiler yourself, or on Linux after running your package manager. |
+
+---
 
 ## Credits
 
