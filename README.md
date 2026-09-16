@@ -91,6 +91,17 @@ You never open a terminal. You never touch an environment variable. You never se
 
 ---
 
+## 📦 Installation
+
+1. Open the **Extensions** view in VS Code (`Ctrl+Shift+X` / `Cmd+Shift+X`).
+2. Search for **Setify C++**.
+3. Click **Install**.
+4. That's it. A short setup notification appears in the bottom-right corner while the compiler is detected or installed — no further action needed.
+
+Or install directly from the [Marketplace listing](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp).
+
+---
+
 ## Credits
 
 Designed and built by **Muhammad Mustafa Amir**
