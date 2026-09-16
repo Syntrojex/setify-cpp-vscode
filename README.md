@@ -81,6 +81,16 @@ You never open a terminal. You never touch an environment variable. You never se
 
 ---
 
+## 🖥️ Platform Support
+
+| Platform | Automatic Setup | What Happens |
+|---|:---:|---|
+| **Windows 10 / 11** | ✅ Fully automatic | MinGW-w64 installs itself with zero manual steps, straight to `C:\mingw64` (or a permission-safe fallback). |
+| **macOS** | ⚠️ Semi-automatic | Triggers Apple's native Xcode Command Line Tools installer. macOS requires a manual click on "Install" in that system dialog — this is an operating-system-level restriction that no extension, from any publisher, can bypass. Everything after that click is automatic. |
+| **Linux** | 🛠️ Manual compiler install | Distributions and package managers vary too widely to automate safely. Install `g++` through your distro's package manager, and Setify C++ wires it into VS Code automatically on the next start. |
+
+---
+
 ## Credits
 
 Designed and built by **Muhammad Mustafa Amir**
