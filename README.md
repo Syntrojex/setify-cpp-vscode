@@ -63,7 +63,21 @@ None of this has anything to do with learning C++. It's tooling friction, and it
 
 You never open a terminal. You never touch an environment variable. You never see an installer wizard. You write a `.cpp` file, click VS Code's own ▶ Run button, and it runs — with output printed straight into the integrated terminal panel at the bottom, exactly the way it would on a workstation somebody had already configured by hand.
 
-<br>
+---
+
+## ✨ Features
+
+| | |
+|---|---|
+| 🔍 **Smart detection** | Scans PATH plus every common install location a compiler might already live in — MSYS2, TDM-GCC, Chocolatey, Scoop (Windows) and Homebrew (macOS) — before ever downloading anything new. |
+| ⚙️ **Silent, automatic installation** | On Windows, if nothing is found, a full MinGW-w64 toolchain installs itself in the background with zero prompts. |
+| 🔄 **Resumable, retrying downloads** | A dropped connection resumes from where it left off instead of restarting, and retries automatically up to 3 times. |
+| 🌍 **Global, not per-project** | Configuration is written once into VS Code's user-level settings. Open any folder, on any drive, at any time afterward — it's already ready. |
+| 🧩 **Brings its own dependency** | The official Microsoft C/C++ extension installs automatically alongside Setify C++ if you don't already have it — a proper `extensionDependencies` entry, not a suggestion you can miss. |
+| 🎯 **Uses VS Code's native tools only** | No custom Run button, no proprietary terminal, no new keyboard shortcuts. Setify C++ configures the tools you already know how to use and gets out of the way. |
+| 🔁 **Self-healing** | Re-verifies on every VS Code startup that both a compiler exists and VS Code is correctly wired to it — and fixes either if something changes later. |
+| 🔬 **Fully transparent** | Every step — detection, download progress, install paths, configuration — logs to a dedicated Output channel you can inspect at any time. |
+| 🧠 **Non-destructive by design** | If a compiler or the C/C++ extension already exists, Setify C++ never overwrites, duplicates, or reinstalls anything — it simply confirms and wires up what's already there. |
 
 ---
 
