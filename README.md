@@ -51,6 +51,22 @@ None of this has anything to do with learning C++. It's tooling friction, and it
 
 ---
 
+## The Solution
+
+**Setify C++ removes every one of those steps.** Install the extension once, and in the background it:
+
+1. Checks whether a C++ compiler already exists on your machine — and uses it if so, changing nothing.
+2. If none exists, downloads and installs a complete MinGW-w64 toolchain (GCC, G++, GDB) automatically — with resume support, so a dropped connection doesn't mean starting the ~260MB download over from scratch.
+3. Registers that compiler with VS Code's official C/C++ extension — globally, so it applies to every project you ever open, not just one.
+4. Brings the official C/C++ extension along as a dependency, so IntelliSense and the built-in Run button are ready immediately.
+5. Re-checks this on every VS Code startup — self-healing, so if the configuration is ever removed or a compiler goes missing later, it's fixed automatically.
+
+You never open a terminal. You never touch an environment variable. You never see an installer wizard. You write a `.cpp` file, click VS Code's own ▶ Run button, and it runs — with output printed straight into the integrated terminal panel at the bottom, exactly the way it would on a workstation somebody had already configured by hand.
+
+<br>
+
+---
+
 ## Credits
 
 Designed and built by **Muhammad Mustafa Amir**
