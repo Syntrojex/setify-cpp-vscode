@@ -6,16 +6,8 @@ const path = require('path');
 const { MINGW_ZIP_URL, ZIP_TMP_PATH, PRIMARY_INSTALL_DIR, FALLBACK_INSTALL_DIR } = require('./config');
 
 const REPORT_ISSUE_URL =
-  'https://github.com/Syntrojex/set-cpp-vscode/issues/new?title=MinGW%20download%20URL%20expired&body=The%20MinGW-w64%20download%20link%20in%20config.js%20appears%20to%20be%20dead%20(the%20upstream%20WinLibs%20release%20may%20have%20moved%20or%20been%20removed).%20Please%20update%20MINGW_ZIP_URL.';
+  'https://github.com/Syntrojex/setify-cpp-vscode/issues/new?title=MinGW%20download%20URL%20expired&body=The%20MinGW-w64%20download%20link%20in%20config.js%20appears%20to%20be%20dead%20(the%20upstream%20WinLibs%20release%20may%20have%20moved%20or%20been%20removed).%20Please%20update%20MINGW_ZIP_URL.';
 
-/**
- * Checks whether a URL is actually reachable, using a lightweight HEAD
- * request (follows redirects) instead of starting a real ~260MB download
- * just to find out. Returns the final resolved HTTP status code, or null if
- * the check itself was inconclusive (timeout, DNS failure, no connection at
- * all) — a null result should NOT be treated as "the URL is broken", since
- * it could just as easily be the user's own network being flaky right now.
- */
 function checkUrlStatus(url, redirectsLeft = 5) {
   return new Promise((resolve) => {
     const req = https
@@ -37,10 +29,6 @@ function checkUrlStatus(url, redirectsLeft = 5) {
   });
 }
 
-// Downloader with resume support: if destPath already has partial bytes
-// from a previous attempt, requests only the remaining range instead of
-// starting over. Falls back to a clean restart if the server doesn't
-// honor the Range request, or if the partial file turns out to be invalid.
 function download(url, destPath) {
   return new Promise((resolve, reject) => {
     let existingBytes = 0;
@@ -57,11 +45,6 @@ function download(url, destPath) {
     const request = (currentUrl, resumeFrom) => {
       const headers = resumeFrom > 0 ? { Range: `bytes=${resumeFrom}-` } : {};
       let file = null;
-
-      // Ensures the write stream's file descriptor is always released before
-      // rejecting — without this, a retry immediately trying to reopen the
-      // same path (in append mode) could hit a "file in use" error on
-      // Windows, since the previous handle might not be closed yet.
       const cleanupAndReject = (err) => {
         if (file) file.destroy();
         reject(err);
@@ -74,19 +57,22 @@ function download(url, destPath) {
             return;
           }
 
-          if (res.statusCode === 206) {
-            // Server honored the resume request — append to what's already there.
+          if (res.statusCode === 206)
+          {
             const match = /\/(\d+)\s*$/.exec(res.headers['content-range'] || '');
             totalBytes = match ? parseInt(match[1], 10) : resumeFrom + parseInt(res.headers['content-length'] || '0', 10);
             file = fs.createWriteStream(destPath, { flags: 'a' });
-          } else if (res.statusCode === 200) {
-            // Server ignored the Range header and is sending the whole file —
-            // restart cleanly rather than risk duplicating/corrupting data.
+          } 
+          
+          else if (res.statusCode === 200) 
+          {
             receivedBytes = 0;
             totalBytes = parseInt(res.headers['content-length'] || '0', 10);
             file = fs.createWriteStream(destPath, { flags: 'w' });
-          } else if (res.statusCode === 416 && resumeFrom > 0) {
-            // The partial file doesn't match what the server has anymore
+          } 
+          
+          else if (res.statusCode === 416 && resumeFrom > 0) 
+          {
             // (stale/corrupt) — drop it and restart fresh.
             fs.unlink(destPath, () => request(url, 0));
             return;
@@ -95,9 +81,6 @@ function download(url, destPath) {
             return;
           }
 
-          // On a network error mid-download, the partial file is deliberately
-          // LEFT ON DISK (not deleted) so a subsequent call to download() can
-          // resume from where it stopped instead of starting over.
           res.on('error', cleanupAndReject);
 
           res.on('data', (chunk) => {
@@ -125,10 +108,6 @@ function download(url, destPath) {
         })
         .on('error', cleanupAndReject);
 
-      // If the connection stalls (no data at all for 30s at any point — a
-      // dead server, a captive portal, a dropped Wi-Fi), fail cleanly instead
-      // of hanging forever. The partial file (if any) is left in place so a
-      // retry can resume from it.
       req.setTimeout(30000, () => {
         req.destroy(new Error('Download timed out — no response from the server for 30 seconds.'));
       });
@@ -142,11 +121,6 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Downloads with automatic retries — each retry resumes from where the
- * previous attempt left off (via download()'s Range support) rather than
- * starting over, so a flaky connection costs time, not re-downloaded data.
- */
 async function downloadWithRetries(url, destPath, attempts = 3, onRetry) {
   let lastError;
   for (let i = 1; i <= attempts; i++) {
@@ -164,11 +138,6 @@ async function downloadWithRetries(url, destPath, attempts = 3, onRetry) {
   throw lastError;
 }
 
-// Uses Windows' built-in PowerShell Expand-Archive — no 7zip / no npm dependency
-// required. Runs ASYNCHRONOUSLY (spawn, not execFileSync): the MinGW zip is
-// ~260MB and extraction can take 10-60+ seconds. A synchronous call here would
-// block VS Code's whole extension host process for that entire time, which is
-// exactly what was causing the "extension host unresponsive / reload?" prompt.
 function extractZip(zipPath, destDir) {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(destDir, { recursive: true });
@@ -185,11 +154,6 @@ function extractZip(zipPath, destDir) {
   });
 }
 
-// winlibs zips extract into a top-level "mingw64" folder — flatten it up one
-// level. Defensive against retries: if a previous install attempt was
-// interrupted partway and left files behind, renaming over them would
-// normally throw — so any conflicting leftover is removed first, ensuring
-// a re-run after a failed attempt always succeeds instead of getting stuck.
 function flattenIfNested(destDir) {
   const nested = path.join(destDir, 'mingw64');
   if (fs.existsSync(nested) && fs.statSync(nested).isDirectory()) {
@@ -217,27 +181,6 @@ function canWriteTo(dir) {
   }
 }
 
-/**
- * Installs MinGW to C:\mingw64. If that's not writable without elevation,
- * falls back to C:\Users\Public\mingw64 (still on the C: drive, still
- * shared/global, no admin rights needed).
- *
- * Before attempting the real ~260MB download, a quick HEAD check confirms
- * the URL is actually still alive. WinLibs periodically moves/renames its
- * releases, so this link WILL eventually go stale — when it does, this
- * fails immediately with a clear, actionable message pointing at a
- * pre-filled GitHub issue, instead of burning through 3 retries with delays
- * only to end up with a confusing raw "404" error. A CONFIRMED 404/410 is
- * what triggers this — an inconclusive check (network hiccup, timeout) is
- * NOT treated as "the URL is broken" and falls through to a normal
- * download attempt (which has its own retry logic for exactly that case).
- *
- * The download itself automatically retries on failure, resuming from
- * wherever the previous attempt left off — a dropped connection costs
- * time, not already-downloaded data.
- *
- * Returns the directory it actually installed into.
- */
 async function downloadAndInstall(onFallback, onRetry) {
   const status = await checkUrlStatus(MINGW_ZIP_URL);
   if (status === 404 || status === 410) {
@@ -258,7 +201,7 @@ async function downloadAndInstall(onFallback, onRetry) {
 
   await extractZip(ZIP_TMP_PATH, targetDir);
   flattenIfNested(targetDir);
-  fs.unlinkSync(ZIP_TMP_PATH); // only removed after everything succeeded
+  fs.unlinkSync(ZIP_TMP_PATH); 
   return targetDir;
 }
 
