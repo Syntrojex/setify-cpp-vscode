@@ -26,7 +26,6 @@
 - [Features](#-features)
 - [Platform Support](#️-platform-support)
 - [Installation](#-installation)
-- [How It Works, Technically](#-how-it-works-technically)
 - [Requirements](#-requirements)
 - [Commands](#️-commands)
 - [Frequently Asked Questions](#-frequently-asked-questions)
