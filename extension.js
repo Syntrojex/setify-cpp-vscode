@@ -12,17 +12,6 @@ function log(msg) {
   outputChannel.appendLine(msg);
 }
 
-/**
- * Runs the full detect/install/wire flow with a progress notification.
- * This is the ONLY thing Setify C++ does — it never adds its own Run
- * button or menu entries. Once a compiler is detected/installed and wired
- * into VS Code's global settings, VS Code's own built-in Run (the ▶ icon
- * the C/C++ extension provides, or the Run menu) just works on its own.
- *
- * `silent` suppresses the progress notification and success/warning popups
- * — used by the background Xcode-install watcher below, which checks
- * repeatedly and shouldn't spam a notification every 20 seconds.
- */
 async function setupWithProgress(silent = false) {
   if (isSettingUp) return null;
   isSettingUp = true;
@@ -73,17 +62,9 @@ async function setupWithProgress(silent = false) {
   return result;
 }
 
-/**
- * On macOS, after triggering the Xcode Command Line Tools installer, there
- * is no event to listen for when the user finishes clicking through it —
- * Apple gives no callback. So instead of leaving the user to manually
- * reload VS Code or re-run Setup once it's done, this checks quietly in
- * the background every 20 seconds (up to 15 minutes) and finishes wiring
- * everything up automatically the moment a compiler becomes available.
- */
 function startXcodeWatcher() {
-  if (xcodeWatcherInterval) return; // already watching
-  let checksLeft = 45; // 45 * 20s = 15 minutes
+  if (xcodeWatcherInterval) return;
+  let checksLeft = 45;
   xcodeWatcherInterval = setInterval(async () => {
     checksLeft--;
     if (checksLeft <= 0) {
@@ -109,19 +90,6 @@ function activate(context) {
   context.subscriptions.push({ dispose: stopXcodeWatcher });
 
   context.subscriptions.push(vscode.commands.registerCommand('setify-cpp.setup', () => setupWithProgress(false)));
-
-  // Fully automatic — the ONLY manual step is installing this extension
-  // (and, on macOS, clicking "Install" in the one native Apple dialog).
-  //
-  // Self-healing, checked fresh on every activation instead of a one-time
-  // flag: setup runs whenever EITHER a compiler isn't found OR VS Code's
-  // global settings aren't wired to one yet. This guarantees a compiler
-  // that already existed still gets wired up (not just newly-installed
-  // ones), AND that wiring which was somehow removed or never completed
-  // gets fixed automatically next time VS Code starts — without ever
-  // re-downloading anything when a compiler is already present, since that
-  // check (isGloballyWired) is just a fast local check against VS Code's
-  // configuration API, not a re-install.
   if (!findOnPath() || !isGloballyWired()) {
     setupWithProgress(false);
   }
