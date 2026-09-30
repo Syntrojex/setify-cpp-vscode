@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="images/icon.png" width="110" alt="Setify C++ icon">
+<img src="images/icon.png" width="110" alt="Setify C++ icon"> 
 
 
 # Setify C++
