@@ -8,7 +8,11 @@ const { wireGlobalVscode } = require('./vscode-global');
 const { isXcodeToolsInstalled, triggerXcodeToolsInstall } = require('./mac-install');
 const { PRIMARY_INSTALL_DIR } = require('./config');
 
-
+/**
+ * Wraps wireGlobalVscode so a failure updating VS Code's configuration API
+ * turns into a graceful { ok: false } result instead of an unhandled
+ * exception bubbling all the way up through VS Code's progress API.
+ */
 async function safeWire(binDir, binaryName, log) {
   try {
     const compilerPath = await wireGlobalVscode(binDir, binaryName);
@@ -20,7 +24,11 @@ async function safeWire(binDir, binaryName, log) {
   }
 }
 
-
+/**
+ * Wraps addToUserPath so a PowerShell failure (e.g. a locked-down corporate
+ * machine with restrictive execution policy) doesn't crash the whole setup.
+ * Windows-only — see system.js.
+ */
 function safeAddToUserPath(dir, log) {
   try {
     return addToUserPath(dir);
@@ -30,25 +38,32 @@ function safeAddToUserPath(dir, log) {
   }
 }
 
-
+/**
+ * Windows flow: fully automatic. Detect → download MinGW if missing →
+ * add to PATH → wire VS Code globally.
+ */
 async function runWindowsInstall(log) {
   log('Scanning your system for an existing C++ compiler...');
   const { onPath, others } = findCompiler();
   let binDir;
+  let binary;
 
   if (onPath) {
+    binary = onPath.binary;
     log(`Found: ${onPath.version}`);
     try {
-      binDir = path.dirname(execFileSync('where', [onPath.binary], { encoding: 'utf8' }).split('\n')[0].trim());
+      binDir = path.dirname(execFileSync('where', [binary], { encoding: 'utf8' }).split('\n')[0].trim());
     } catch (e) {
       return { ok: false, message: `Compiler detected but its location could not be resolved: ${e.message}` };
     }
   } else if (others.length > 0) {
+    binary = others[0].binary;
     log(`Found (not on PATH yet): ${others[0].version}`);
     safeAddToUserPath(others[0].dir, log);
     log('Added to PATH.');
     binDir = others[0].dir;
   } else {
+    binary = 'g++'; // this is what WinLibs MinGW-w64 installs — known, not a guess
     log(`No compiler found. Installing MinGW-w64 to ${PRIMARY_INSTALL_DIR}...`);
     log('Downloading (~260MB) — this can take a few minutes.');
     let installedTo;
@@ -71,7 +86,6 @@ async function runWindowsInstall(log) {
     log(added ? 'Added to PATH.' : 'Already on PATH (or could not be updated).');
   }
 
-  const binary = onPath ? onPath.binary : 'g++';
   try {
     const version = execFileSync(path.join(binDir, `${binary}.exe`), ['--version'], { encoding: 'utf8' }).split('\n')[0];
     log(`Verified: ${version}`);
@@ -87,6 +101,16 @@ async function runWindowsInstall(log) {
   return { ok: true, binDir, message: 'Setup complete' };
 }
 
+/**
+ * macOS flow: Apple does not allow silently installing Xcode Command Line
+ * Tools — it always requires the user to click "Install" in a native
+ * system dialog. Detection prefers clang++ (what /usr/bin/g++ really is
+ * under the hood via Apple's toolchain) but falls back to a real GNU g++
+ * from Homebrew if that's what's actually present instead.
+ *
+ * PATH is intentionally NEVER modified here — /usr/bin is already on PATH
+ * by default, and Homebrew manages its own PATH entries. See system.js.
+ */
 async function runMacInstall(log) {
   log('Scanning your system for an existing C++ compiler...');
   const { onPath, others } = findCompiler();
@@ -114,7 +138,9 @@ async function runMacInstall(log) {
   }
 
   if (isXcodeToolsInstalled()) {
-
+    // xcode-select reports a toolchain path, but no compiler actually
+    // resolved above — this means an interrupted/partial CLT install (the
+    // most common cause of the "unable to locate LLDB framework" error).
     log('Xcode Command Line Tools are registered, but no working compiler was found.');
     log('This usually means the installation was interrupted or is incomplete.');
     log('Try running this in Terminal to reinstall cleanly, then run Setup again:');
@@ -134,6 +160,21 @@ async function runMacInstall(log) {
   return { ok: false, waitingForXcodeInstall: true, message: 'Waiting on Xcode Command Line Tools install (user action required)' };
 }
 
+/**
+ * Linux flow: like macOS, Setify C++ never runs a package-manager install
+ * (apt/dnf/pacman/zypper — they all differ, and doing this would mean
+ * silently invoking `sudo`, which this extension will never do without the
+ * user's explicit, visible action). What CAN and SHOULD be automatic is the
+ * wiring: if a compiler already exists — which is common on Linux dev
+ * machines — it gets detected and wired into VS Code's global settings
+ * exactly like Windows/macOS. Only when nothing is found at all does this
+ * fall back to asking the user to install one themselves.
+ *
+ * PATH is intentionally NEVER modified here — the same reasoning as macOS:
+ * /usr/bin and /usr/local/bin are already on PATH by default on virtually
+ * every Linux distribution, and there's no PowerShell-equivalent mechanism
+ * this extension should be reaching for here anyway.
+ */
 async function runLinuxInstall(log) {
   log('Scanning your system for an existing C++ compiler...');
   const { onPath, others } = findCompiler();
@@ -172,6 +213,11 @@ async function runLinuxInstall(log) {
   return { ok: false, message: 'No compiler found — install one via your package manager, then run Setup again' };
 }
 
+/**
+ * Runs the full detect → install → wire flow, branching by OS.
+ * `log(message)` is called at each step so the caller can show progress.
+ * Returns { ok: boolean, binDir?: string, message: string, waitingForXcodeInstall?: boolean }
+ */
 async function runInstall(log = () => {}) {
   if (process.platform === 'win32') return runWindowsInstall(log);
   if (process.platform === 'darwin') return runMacInstall(log);
