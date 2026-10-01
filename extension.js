@@ -12,6 +12,9 @@ function log(msg) {
   outputChannel.appendLine(msg);
 }
 
+// Runs detect/install/wire with a progress notification. `silent` skips the
+// notification/popups — used by the background Xcode watcher below, which
+// checks repeatedly and shouldn't spam a notification every 20 seconds.
 async function setupWithProgress(silent = false) {
   if (isSettingUp) return null;
   isSettingUp = true;
@@ -62,13 +65,21 @@ async function setupWithProgress(silent = false) {
   return result;
 }
 
+// On macOS, after triggering the Xcode installer, there's no callback for
+// when the user finishes it — this polls every 20s (up to 15 min) and
+// finishes wiring automatically once a compiler appears. If it times out
+// with no result, the user is told clearly instead of it just going quiet.
 function startXcodeWatcher() {
   if (xcodeWatcherInterval) return;
-  let checksLeft = 45;
+  let checksLeft = 45; // 45 * 20s = 15 minutes
   xcodeWatcherInterval = setInterval(async () => {
     checksLeft--;
     if (checksLeft <= 0) {
       stopXcodeWatcher();
+      vscode.window.showWarningMessage(
+        'Setify C++: still waiting on Xcode Command Line Tools after 15 minutes. ' +
+          'Run "Setify C++: Setup C++ Compiler" once the installer finishes.'
+      );
       return;
     }
     if (findOnPath()) {
@@ -90,6 +101,11 @@ function activate(context) {
   context.subscriptions.push({ dispose: stopXcodeWatcher });
 
   context.subscriptions.push(vscode.commands.registerCommand('setify-cpp.setup', () => setupWithProgress(false)));
+
+  // Self-healing, checked fresh on every activation: setup runs whenever
+  // EITHER a compiler isn't found OR VS Code isn't wired to one yet, so a
+  // pre-existing compiler still gets wired and lost config gets repaired —
+  // without re-installing anything already correct.
   if (!findOnPath() || !isGloballyWired()) {
     setupWithProgress(false);
   }
