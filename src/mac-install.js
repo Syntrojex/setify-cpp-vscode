@@ -11,7 +11,7 @@ const { execSync, spawn } = require('child_process');
  */
 function isXcodeToolsInstalled() {
   try {
-    execSync('xcode-select -p', { stdio: 'ignore' });
+    execSync('xcode-select -p', { stdio: 'ignore', timeout: 5000 });
     return true;
   } catch (e) {
     return false;

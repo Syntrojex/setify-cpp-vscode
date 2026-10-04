@@ -48,7 +48,7 @@ function download(url, destPath) {
     let totalBytes = 0;
     let lastPercent = -1;
 
-    const request = (currentUrl, resumeFrom) => {
+    const request = (currentUrl, resumeFrom, redirectsLeft = 5) => {
       const headers = resumeFrom > 0 ? { Range: `bytes=${resumeFrom}-` } : {};
       let file = null;
 
@@ -62,7 +62,11 @@ function download(url, destPath) {
       const req = https
         .get(currentUrl, { headers }, (res) => {
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            request(res.headers.location, resumeFrom);
+            if (redirectsLeft <= 0) {
+              reject(new Error('Too many redirects while downloading.'));
+              return;
+            }
+            request(res.headers.location, resumeFrom, redirectsLeft - 1);
             return;
           }
 
@@ -77,7 +81,7 @@ function download(url, destPath) {
             file = fs.createWriteStream(destPath, { flags: 'w' });
           } else if (res.statusCode === 416 && resumeFrom > 0) {
             // Partial file no longer matches the server — drop and restart.
-            fs.unlink(destPath, () => request(url, 0));
+            fs.unlink(destPath, () => request(url, 0, 5));
             return;
           } else {
             reject(new Error(`Download failed with status code ${res.statusCode}`));

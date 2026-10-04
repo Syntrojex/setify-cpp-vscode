@@ -5,7 +5,7 @@ function getUserPath() {
   return execFileSync(
     'powershell.exe',
     ['-NoProfile', '-Command', "[Environment]::GetEnvironmentVariable('Path', 'User')"],
-    { encoding: 'utf8' }
+    { encoding: 'utf8', timeout: 8000 }
   ).trim();
 }
 
@@ -13,7 +13,7 @@ function setUserPath(newPath) {
   execFileSync(
     'powershell.exe',
     ['-NoProfile', '-Command', `[Environment]::SetEnvironmentVariable('Path', '${newPath.replace(/'/g, "''")}', 'User')`],
-    { stdio: 'ignore' }
+    { stdio: 'ignore', timeout: 8000 }
   );
 }
 

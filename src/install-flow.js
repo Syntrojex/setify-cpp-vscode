@@ -52,15 +52,16 @@ async function runWindowsInstall(log) {
     binary = onPath.binary;
     log(`Found: ${onPath.version}`);
     try {
-      binDir = path.dirname(execFileSync('where', [binary], { encoding: 'utf8' }).split('\n')[0].trim());
+      binDir = path.dirname(execFileSync('where', [binary], { encoding: 'utf8', timeout: 5000 }).split('\n')[0].trim());
     } catch (e) {
       return { ok: false, message: `Compiler detected but its location could not be resolved: ${e.message}` };
     }
   } else if (others.length > 0) {
     binary = others[0].binary;
     log(`Found (not on PATH yet): ${others[0].version}`);
-    safeAddToUserPath(others[0].dir, log);
-    log('Added to PATH.');
+    if (safeAddToUserPath(others[0].dir, log)) {
+      log('Added to PATH.');
+    }
     binDir = others[0].dir;
   } else {
     binary = 'g++'; // this is what WinLibs MinGW-w64 installs — known, not a guess
@@ -83,11 +84,16 @@ async function runWindowsInstall(log) {
     log(`Installed to ${installedTo}`);
     binDir = path.join(installedTo, 'bin');
     const added = safeAddToUserPath(binDir, log);
-    log(added ? 'Added to PATH.' : 'Already on PATH (or could not be updated).');
+    if (added) {
+      log('Added to PATH.');
+    }
   }
 
   try {
-    const version = execFileSync(path.join(binDir, `${binary}.exe`), ['--version'], { encoding: 'utf8' }).split('\n')[0];
+    const version = execFileSync(path.join(binDir, `${binary}.exe`), ['--version'], {
+      encoding: 'utf8',
+      timeout: 5000
+    }).split('\n')[0];
     log(`Verified: ${version}`);
   } catch (e) {
     log('Could not verify compiler — you may need to reload VS Code.');
@@ -119,7 +125,7 @@ async function runMacInstall(log) {
     log(`Found: ${onPath.version} (${onPath.binary})`);
     let binDir;
     try {
-      binDir = path.dirname(execFileSync('which', [onPath.binary], { encoding: 'utf8' }).trim());
+      binDir = path.dirname(execFileSync('which', [onPath.binary], { encoding: 'utf8', timeout: 5000 }).trim());
     } catch (e) {
       return { ok: false, message: `Compiler detected but its location could not be resolved: ${e.message}` };
     }
@@ -183,7 +189,7 @@ async function runLinuxInstall(log) {
     log(`Found: ${onPath.version} (${onPath.binary})`);
     let binDir;
     try {
-      binDir = path.dirname(execFileSync('which', [onPath.binary], { encoding: 'utf8' }).trim());
+      binDir = path.dirname(execFileSync('which', [onPath.binary], { encoding: 'utf8', timeout: 5000 }).trim());
     } catch (e) {
       return { ok: false, message: `Compiler detected but its location could not be resolved: ${e.message}` };
     }

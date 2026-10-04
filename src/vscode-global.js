@@ -145,7 +145,7 @@ function isGloballyWired() {
   if (!compilerPath || !fs.existsSync(compilerPath)) return false;
 
   try {
-    const output = execFileSync(compilerPath, ['--version'], { encoding: 'utf8' }).toLowerCase();
+    const output = execFileSync(compilerPath, ['--version'], { encoding: 'utf8', timeout: 5000 }).toLowerCase();
     const compilerSignatures = ['gcc', 'g++', 'clang', 'mingw', 'apple llvm'];
     if (!compilerSignatures.some((sig) => output.includes(sig))) return false;
   } catch (e) {
