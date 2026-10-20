@@ -12,6 +12,7 @@
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-0078D4?style=flat-square&logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-lightgrey?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp)
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/Syntrojex/badge.svg)](https://hub.xerj.org/contributors/Syntrojex)
 
 [**Install from Marketplace**](https://marketplace.visualstudio.com/items?itemName=Syntrojex.setify-cpp) &nbsp;·&nbsp; [Repository](https://github.com/Syntrojex/setify-cpp-vscode) &nbsp;·&nbsp; [Report an Issue](https://github.com/Syntrojex/setify-cpp-vscode/issues) &nbsp;·&nbsp; [Changelog](#-release-notes)
 
