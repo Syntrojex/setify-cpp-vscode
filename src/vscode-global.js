@@ -4,9 +4,6 @@ const path = require('path');
 const vscode = require('vscode');
 const { execFileSync } = require('child_process');
 
-// Every standard value cpptools actually recognizes for these two settings.
-// Used to tell "the user deliberately chose this" apart from "missing" or
-// "garbage" — a value in this list is left alone, whoever set it.
 const VALID_C_STANDARDS = ['c89', 'c99', 'c11', 'c17', 'c23', 'gnu89', 'gnu99', 'gnu11', 'gnu17', 'gnu23'];
 const VALID_CPP_STANDARDS = [
   'c++98', 'c++03', 'c++11', 'c++14', 'c++17', 'c++20', 'c++23',
@@ -24,52 +21,12 @@ function isValidIntelliSenseMode(v) {
   return typeof v === 'string' && INTELLISENSE_MODE_RE.test(v);
 }
 
-/**
- * Resolves the correct cpptools IntelliSense mode string for the current
- * platform + architecture. Apple Silicon (M1/M2/M3/M4/M5, arm64) is NOT the
- * same as an Intel Mac, and the same x64/arm64 distinction applies on Linux
- * (Raspberry Pi, etc.) — getting this wrong gives cpptools an incorrect
- * target triple for IntelliSense.
- */
 function intelliSenseModeFor(isWin, isMac) {
   if (isWin) return 'windows-gcc-x64';
   if (isMac) return process.arch === 'arm64' ? 'macos-clang-arm64' : 'macos-clang-x64';
   return process.arch === 'arm64' ? 'linux-gcc-arm64' : 'linux-gcc-x64';
 }
 
-/**
- * Writes compiler info into VS Code's GLOBAL settings using VS Code's own
- * configuration API, instead of hand-parsing and rewriting settings.json.
- *
- * IMPORTANT — what gets overwritten vs. preserved:
- *   - compilerPath is ALWAYS set. Pointing VS Code at a working compiler is
- *     Setify's entire job, not a "preference" — there's only one correct
- *     value here (wherever the compiler this run detected/installed
- *     actually lives), so this always reflects that.
- *   - intelliSenseMode is ALWAYS set to match the platform/arch/compiler
- *     Setify just configured. This isn't something a user meaningfully
- *     hand-picks independent of the compiler — an incorrect value here
- *     just breaks IntelliSense, it's never a legitimate "different but
- *     valid" choice the way a C++ standard version is.
- *   - cStandard / cppStandard are ONLY set when missing or not a value
- *     cpptools actually recognizes. If the user has already chosen, say,
- *     c++20, that's a legitimate personal preference — Setify has no
- *     business quietly reverting it back to its own c++17 default every
- *     time self-healing runs. This is the fix for a real bug: earlier
- *     versions always overwrote these on every wire, silently discarding
- *     a user's own standard-version choice.
- *   - debugShortcut is ONLY set when the key doesn't exist yet. If a user
- *     explicitly turned this off (they prefer cpptools' own Run icon
- *     hidden, for whatever reason), that's their call to keep — Setify
- *     only sets a default for someone who never touched this setting.
- *   - debuggerPath (Windows/Linux only, never macOS — see below) is only
- *     set when a real gdb binary is found; never forced onto a value that
- *     doesn't exist.
- *
- * @param {string} binDir - directory containing the compiler binary
- * @param {string} [binaryName] - bare executable name to use, e.g. "clang++"
- *   or "g++" (without platform-specific extension). Defaults to "g++".
- */
 async function wireGlobalVscode(binDir, binaryName) {
   const isWin = process.platform === 'win32';
   const isMac = process.platform === 'darwin';
@@ -94,19 +51,11 @@ async function wireGlobalVscode(binDir, binaryName) {
     await config.update('C_Cpp.default.cppStandard', 'c++17', target);
   }
 
-  // Keeps the C/C++ extension's own native ▶ Run icon (top-right of the
-  // editor) visible by default — but never forced back on if the user
-  // deliberately disabled it.
   const existingDebugShortcut = config.get('C_Cpp.debugShortcut');
   if (existingDebugShortcut === undefined) {
     await config.update('C_Cpp.debugShortcut', true, target);
   }
 
-  // Debugger path: only ever set this to a GDB binary, and only when one
-  // genuinely exists next to the compiler (Windows/MinGW, or a Linux distro
-  // GCC toolchain). macOS's native debugger is LLDB, which cpptools already
-  // knows how to use on its own via the system's Xcode Command Line Tools —
-  // forcing a gdb path there would be wrong and is never done.
   if (!isMac) {
     const gdbPath = path.join(binDir, isWin ? 'gdb.exe' : 'gdb').replace(/\\/g, '/');
     if (fs.existsSync(gdbPath)) {
@@ -117,28 +66,6 @@ async function wireGlobalVscode(binDir, binaryName) {
   return compilerPath;
 }
 
-/**
- * True only if VS Code is FULLY AND CORRECTLY wired — not just that a
- * compiler path happens to be set. Checks, all of which must pass:
- *
- *   1. compilerPath is set, resolves to a real file, and actually runs
- *      successfully with output that looks like a genuine C/C++ compiler
- *      (not just any executable that happens to respond to --version).
- *   2. cStandard is a value cpptools recognizes.
- *   3. cppStandard is a value cpptools recognizes.
- *   4. intelliSenseMode is a value cpptools recognizes.
- *
- * This is deliberately NOT "does every setting exactly match what Setify
- * itself would have written" — a user's own valid choice of c++20 instead
- * of the c++17 default still counts as correctly wired (see
- * wireGlobalVscode's preserve-vs-overwrite rules above). What matters is
- * that nothing is missing or broken, not that everything matches Setify's
- * specific defaults.
- *
- * Returning false from any of these checks causes activate() to re-run
- * setup, which repairs exactly the missing/invalid piece without touching
- * anything that was already valid.
- */
 function isGloballyWired() {
   const config = vscode.workspace.getConfiguration();
   const compilerPath = config.get('C_Cpp.default.compilerPath');
